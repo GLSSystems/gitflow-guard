@@ -72,7 +72,7 @@ When the fork's `development` is ready: open a PR `<fork>:development` → `main
 2. Wait for **PR origin** and **Validate** to pass.
 3. On conflicts: merge `main` into the source `development`, resolve and push. The PR updates itself.
 4. An owner reviews the whole PR, especially any change in `.github/workflows/`, and merges it with **Create a merge commit**.
-5. **Protect main** accepts the merge; the project deploys and **Sync development** updates the repository's `development`.
+5. **Protect main** accepts the merge; the project deploys and **Sync integration branch** updates the repository's `development`.
 6. Fork users bring `main` into their `development` before continuing (`git fetch upstream && git merge upstream/main`).
 
 ## Hotfix
@@ -84,7 +84,7 @@ git checkout -b hotfix/<topic> upstream/main # with Write: git checkout -b hotfi
 git push -u origin hotfix/<topic>
 ```
 
-PR `hotfix/<topic>` → `main`. An owner merges it and it deploys. **Sync development** brings the fix into the repository's `development`.
+PR `hotfix/<topic>` → `main`. An owner merges it and it deploys. **Sync integration branch** brings the fix into the repository's `development`.
 
 ## Rollback
 

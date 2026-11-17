@@ -8,7 +8,7 @@ Checks for the owner after adopting the flow or changing its setup. Checks that 
 | 2 | Direct push to `main` skipping the hook (test only) | Reaches GitHub; **Protect main** restores `main`; nothing deploys |
 | 3 | PR `feature/x` → `main` | **PR origin** fails |
 | 4 | PR `development` → `main` merged by an account not in `MAIN_APPROVERS` | **Protect main** restores `main`; nothing deploys |
-| 5 | PR `development` → `main` merged by an owner | **Protect main** passes, the project deploys and **Sync development** updates `development` |
+| 5 | PR `development` → `main` merged by an owner | **Protect main** passes, the project deploys and **Sync integration branch** updates `development` |
 | 6 | Automation account: `git push` to any branch of the original | Rejected (403) |
 | 7 | Automation account: `GET /repos/<organization>/<repo>` | `permissions.push: false`, `admin: false` |
 | 8 | PR `<account>:development` → `main` | **PR origin** and **Validate** run without access to secrets; an owner merges it and it deploys |

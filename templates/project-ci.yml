@@ -3,7 +3,7 @@
 # 1. Replace <SHA> with the commit of the gitflow-guard version being adopted (see CHANGELOG.md).
 #    Pin a commit, not a branch: a change in gitflow-guard does not affect the project until
 #    someone with permission updates it here, in a reviewed PR.
-# 2. Set "language" (en, es) for job names and messages.
+# 2. Set "language" (en, es) for messages.
 # 3. Fill in the project's own "validate" and "deploy" steps.
 # 4. Create the repository variable MAIN_APPROVERS.
 name: CI and deploy

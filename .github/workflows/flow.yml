@@ -27,7 +27,7 @@ on:
         type: string
         default: development
       language:
-        description: "Language of job names and messages: en, es."
+        description: "Language of messages: en, es. Job names are always in English."
         required: false
         type: string
         default: en
@@ -38,7 +38,7 @@ on:
 
 jobs:
   pr-origin:
-    name: ${{ inputs.language == 'es' && 'Origen del PR' || 'PR origin' }}
+    name: PR origin
     if: github.event_name == 'pull_request' && github.base_ref == 'main'
     runs-on: ubuntu-latest
     permissions: {}
@@ -62,7 +62,7 @@ jobs:
           esac
 
   protect-main:
-    name: ${{ inputs.language == 'es' && 'Proteger main' || 'Protect main' }}
+    name: Protect main
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -140,7 +140,7 @@ jobs:
           m_ok "$pr" "$head_repo:$head_ref" "$merger"
 
   sync-integration:
-    name: ${{ inputs.language == 'es' && format('Sincronizar {0}', inputs.integration-branch) || format('Sync {0}', inputs.integration-branch) }}
+    name: Sync integration branch
     needs: protect-main
     if: needs.protect-main.outputs.accepted == 'true'
     runs-on: ubuntu-latest

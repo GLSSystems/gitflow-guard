@@ -38,7 +38,7 @@ It serves people and automation accounts (bots, CI tools, assistants) alike: eve
 Summary (details in [Adopting the flow in a project](docs/en/adopting.md)):
 
 1. Copy `templates/project-ci.yml` to the project's `.github/workflows/ci.yml` and pin the version of `flow.yml`.
-2. Choose the `language` of job names and messages.
+2. Choose the `language` of messages.
 3. Fill in the project's `validate` and `deploy` jobs.
 4. Create the `MAIN_APPROVERS` variable.
 5. Copy `templates/pre-push` to `.githooks/pre-push`.
@@ -50,10 +50,10 @@ The documentation of this repository is in English. Each project chooses its own
 
 | Element | Available languages | How to choose |
 |---|---|---|
-| Job names and messages of `flow.yml` | `en`, `es` | `language` input in the project's workflow |
+| Messages of `flow.yml` (job names stay in English, so check names are the same in every project) | `en`, `es` | `language` input in the project's workflow |
 | README section | `en`, `es` | `templates/readme-section.<lang>.md` |
 
-To add a language: add its messages to each `if [ "$LANGUAGE" = ... ]` block and job name expression in `flow.yml`, add `templates/readme-section.<lang>.md`, and update this table. Translated documentation goes in `docs/<lang>/` with the same file names.
+To add a language: add its messages to each `if [ "$LANGUAGE" = ... ]` block in `flow.yml`, add `templates/readme-section.<lang>.md`, and update this table. Translated documentation goes in `docs/<lang>/` with the same file names.
 
 ## Versions
 

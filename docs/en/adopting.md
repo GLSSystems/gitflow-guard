@@ -40,7 +40,7 @@ Deploy variables and secrets: at repository level. Private repositories on the f
 
 1. Copy [templates/project-ci.yml](../../templates/project-ci.yml) to `.github/workflows/ci.yml`.
 2. Replace `<SHA>` with the commit of the chosen version (see [CHANGELOG.md](../../CHANGELOG.md)) and note the version in the comment.
-3. Set `language` (`en`, `es`).
+3. Set `language` (`en`, `es`) for messages.
 4. Fill in `validate` with the project's checks.
 5. Fill in `deploy` with the deploy steps. Keep its `if` condition: it prevents deploying a rejected change.
 6. If the repository already had a workflow with its own `main` protection, replace it in the same PR so two protections do not run.
