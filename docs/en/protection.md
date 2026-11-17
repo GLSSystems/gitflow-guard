@@ -1,19 +1,18 @@
 # How `main` is protected
 
-## Contents
+## Table of Contents
+- [1. Goal](#1-goal)
+- [2. Layers](#2-layers)
+- [3. Why automation accounts use a fork](#3-why-automation-accounts-use-a-fork)
+- [4. What it does not cover](#4-what-it-does-not-cover)
 
-- [Goal](#goal)
-- [Layers](#layers)
-- [Why automation accounts use a fork](#why-automation-accounts-use-a-fork)
-- [What it does not cover](#what-it-does-not-cover)
-
-## Goal
+## 1. Goal
 
 Every change to `main`, and therefore every deploy, goes through a PR merged by an owner account. No other account, person or automation, can change `main` or deploy.
 
 On GitHub's free plan, private repositories do not enforce branch protection rules or rulesets. These layers replace them.
 
-## Layers
+## 2. Layers
 
 | # | Layer | Where | Prevents |
 |---|---|---|---|
@@ -26,7 +25,7 @@ On GitHub's free plan, private repositories do not enforce branch protection rul
 
 For a few seconds after a rejected push, `main` holds that commit. Nothing deploys in that window: deploy waits for layer 3.
 
-## Why automation accounts use a fork
+## 3. Why automation accounts use a fork
 
 **Protect main** runs from the workflow contained in the very commit that reaches `main`. An account that can push to `main` **and** modify workflows can replace the protection in that same push.
 
@@ -38,7 +37,7 @@ A token without the *Workflows* permission prevents the second part, but not eve
 
 People with the Write role could also replace the protection. Trusting them is the owner's decision: keep the list of Write accounts short.
 
-## What it does not cover
+## 4. What it does not cover
 
 - **Manual runs** (*Run workflow* in the Actions tab): they redeploy `main` without the protection. Only accounts with write access to the repository can start them; that is why automation accounts have the Read role.
 - **Compromised owner accounts**: whoever controls an account in `MAIN_APPROVERS` can merge anything. Protect those accounts with two-factor authentication.
