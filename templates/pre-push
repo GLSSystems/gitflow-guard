@@ -1,0 +1,17 @@
+#!/bin/sh
+# Blocks direct pushes to main from this clone.
+# The real protection is the "Protect main" job of the shared flow; this hook is a first local barrier.
+# Enable it once per clone:  git config core.hooksPath .githooks
+while read -r _ _ remote_ref _; do
+  case "$remote_ref" in
+    refs/heads/main)
+      echo "" >&2
+      echo "ERROR: direct push to 'main' blocked." >&2
+      echo "  main changes only through a PR merged by an approver." >&2
+      echo "  Flow: work branch -> development -> PR development -> main." >&2
+      echo "" >&2
+      exit 1
+      ;;
+  esac
+done
+exit 0

@@ -1,0 +1,74 @@
+# CI of this repository. Uses its own shared flow and validates the files. Deploys nothing.
+name: CI
+
+on:
+  push:
+    branches: [main, development]
+  pull_request:
+    branches: [main, development]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  flow:
+    name: Flow
+    uses: ./.github/workflows/flow.yml
+    permissions:
+      contents: write
+      pull-requests: read
+    with:
+      approvers: ${{ vars.MAIN_APPROVERS }}
+
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Workflows (actionlint)
+        run: |
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12
+          ./actionlint -color
+
+      - name: Hooks (shellcheck)
+        run: shellcheck .githooks/pre-push templates/pre-push
+
+      - name: Workflow templates (actionlint)
+        run: |
+          for f in templates/*.yml; do
+            sed 's/@<SHA>/@0000000000000000000000000000000000000000/' "$f" > "$RUNNER_TEMP/$(basename "$f")"
+          done
+          ./actionlint -color "$RUNNER_TEMP"/*.yml
+
+      - name: Relative links in documentation
+        run: |
+          python3 - <<'EOF'
+          import pathlib, re, sys, urllib.parse
+          errors = 0
+          for md in sorted(pathlib.Path('.').rglob('*.md')):
+              if '.git' in md.parts:
+                  continue
+              texto = md.read_text(encoding='utf-8')
+              for target in re.findall(r'\]\(([^)\s]+)\)', texto):
+                  if re.match(r'^([a-z]+:|#)', target):
+                      continue
+                  path = urllib.parse.unquote(target.split('#')[0])
+                  if path and not (md.parent / path).exists():
+                      print(f"::error file={md}::Broken link: {target}")
+                      errors += 1
+          print(f"Broken links: {errors}")
+          sys.exit(1 if errors else 0)
+          EOF
+
+      - name: No credentials committed
+        run: |
+          if git ls-files | grep -E '(^|/)\.env$|(^|/)secrets?\.'; then
+            echo "::error::Credential file committed"; exit 1; fi
+          if git grep -nE 'github_pat_[A-Za-z0-9_]{20,}|ghp_[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16}' -- . ; then
+            echo "::error::Token or access key committed"; exit 1; fi
+          echo "OK"

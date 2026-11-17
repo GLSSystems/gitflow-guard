@@ -1,0 +1,65 @@
+# Template for a project's workflow: .github/workflows/ci.yml
+#
+# 1. Replace <SHA> with the commit of the gitflow-guard version being adopted (see CHANGELOG.md).
+#    Pin a commit, not a branch: a change in gitflow-guard does not affect the project until
+#    someone with permission updates it here, in a reviewed PR.
+# 2. Set "language" (en, es) for messages.
+# 3. Fill in the project's own "validate" and "deploy" steps.
+# 4. Create the repository variable MAIN_APPROVERS.
+name: CI and deploy
+
+on:
+  push:
+    branches: [main, development]
+  pull_request:
+    branches: [main, development]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  flow:
+    name: Flow
+    uses: GLSSystems/gitflow-guard/.github/workflows/flow.yml@<SHA> # vX.Y.Z
+    permissions:
+      contents: write
+      pull-requests: read
+    with:
+      approvers: ${{ vars.MAIN_APPROVERS }}
+      language: en
+
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: No credentials committed
+        run: |
+          if git ls-files | grep -E '(^|/)\.env$|(^|/)secrets?\.'; then
+            echo "::error::Credential file committed"; exit 1; fi
+          echo "OK"
+      # Add the project's checks here (syntax, links, tests).
+
+  deploy:
+    name: Deploy
+    needs: [flow, validate]
+    # Only on main and only if "Protect main" accepted the change. A manual run from the
+    # Actions tab (workflow_dispatch) redeploys main without the protection: only accounts
+    # with write access to the repository can start it.
+    if: >-
+      always() && github.ref == 'refs/heads/main' &&
+      needs.validate.result == 'success' && needs.flow.result == 'success' &&
+      (needs.flow.outputs.main-accepted == 'true' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-production   # one deploy at a time, in merge order
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy
+        run: echo "Replace with the project's deploy steps"
