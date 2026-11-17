@@ -1,0 +1,194 @@
+# Shared flow (reusable workflow).
+#
+# Called by each project's workflow. Enforces the rules in docs/en/workflow.md:
+#   - PR origin: a PR to main may only come from the integration branch or hotfix/*
+#     (in the repository or in a fork).
+#   - Protect main: every change to main must be the merge of a PR performed by an approver.
+#     Otherwise main is restored to the previous commit and the project does not deploy.
+#   - Sync integration branch: after an accepted merge, the repository's integration branch receives main.
+#
+# Output main-accepted = 'true' when the change to main passed the protection. The project's
+# deploy job must require it (see templates/project-ci.yml).
+#
+# Permissions the calling job must grant: contents: write, pull-requests: read.
+
+name: Shared flow
+
+on:
+  workflow_call:
+    inputs:
+      approvers:
+        description: "GitHub logins allowed to merge into main, comma-separated (repository variable MAIN_APPROVERS)."
+        required: true
+        type: string
+      integration-branch:
+        description: "The project's integration branch."
+        required: false
+        type: string
+        default: development
+      language:
+        description: "Language of job names and messages: en, es."
+        required: false
+        type: string
+        default: en
+    outputs:
+      main-accepted:
+        description: "'true' when the change to main is the merge of a valid PR."
+        value: ${{ jobs.protect-main.outputs.accepted }}
+
+jobs:
+  pr-origin:
+    name: ${{ inputs.language == 'es' && 'Origen del PR' || 'PR origin' }}
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: PRs to main come only from the integration branch or hotfix/*
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          INTEGRATION: ${{ inputs.integration-branch }}
+          LANGUAGE: ${{ inputs.language }}
+        run: |
+          case "$HEAD_REF" in
+            "$INTEGRATION"|hotfix/*) echo "OK: $HEAD_REPO:$HEAD_REF -> main" ;;
+            *)
+              if [ "$LANGUAGE" = "es" ]; then
+                echo "::error::Los cambios llegan a main solo desde $INTEGRATION o hotfix/*. Este PR viene de '$HEAD_REPO:$HEAD_REF'."
+              else
+                echo "::error::Changes reach main only from $INTEGRATION or hotfix/*. This PR comes from '$HEAD_REPO:$HEAD_REF'."
+              fi
+              exit 1 ;;
+          esac
+
+  protect-main:
+    name: ${{ inputs.language == 'es' && 'Proteger main' || 'Protect main' }}
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # to restore main when the change is not valid
+      pull-requests: read
+    outputs:
+      accepted: ${{ steps.check.outputs.accepted }}
+    steps:
+      - name: Accept only a PR merged by an approver
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          BEFORE: ${{ github.event.before }}
+          FORCED: ${{ github.event.forced }}
+          APPROVERS: ${{ inputs.approvers }}
+          INTEGRATION: ${{ inputs.integration-branch }}
+          LANGUAGE: ${{ inputs.language }}
+        run: |
+          set -uo pipefail
+          zero=0000000000000000000000000000000000000000
+          if [ "$LANGUAGE" = "es" ]; then
+            m_restored()     { echo "main restaurado a $1. Los cambios llegan a main solo por un PR fusionado por una cuenta aprobadora."; }
+            m_no_approvers() { echo "Falta la variable MAIN_APPROVERS. No se publica nada."; }
+            m_forced()       { echo "force-push a main"; }
+            m_direct()       { echo "envío directo a main ($1 no es la fusión de un PR)"; }
+            m_origin()       { echo "el PR #$1 viene de '$2' (solo $INTEGRATION o hotfix/*)"; }
+            m_merger()       { echo "el PR #$1 lo fusionó '$2', que no está en MAIN_APPROVERS"; }
+            m_ok()           { echo "OK: PR #$1 ($2 -> main) fusionado por $3"; }
+          else
+            m_restored()     { echo "main restored to $1. Changes reach main only through a PR merged by an approver."; }
+            m_no_approvers() { echo "Repository variable MAIN_APPROVERS is missing. Nothing is deployed."; }
+            m_forced()       { echo "force-push to main"; }
+            m_direct()       { echo "direct push to main ($1 is not a PR merge)"; }
+            m_origin()       { echo "PR #$1 comes from '$2' (only $INTEGRATION or hotfix/*)"; }
+            m_merger()       { echo "PR #$1 was merged by '$2', who is not in MAIN_APPROVERS"; }
+            m_ok()           { echo "OK: PR #$1 ($2 -> main) merged by $3"; }
+          fi
+          reject() {
+            echo "::error::$1"
+            if [ -n "$APPROVERS" ] && [ -n "$BEFORE" ] && [ "$BEFORE" != "$zero" ]; then
+              current=$(gh api "repos/$REPO/git/ref/heads/main" --jq .object.sha)
+              if [ "$current" = "$SHA" ]; then
+                gh api -X PATCH "repos/$REPO/git/refs/heads/main" -f sha="$BEFORE" -F force=true >/dev/null \
+                  && echo "::error::$(m_restored "$BEFORE")"
+              fi
+            fi
+            exit 1
+          }
+          if [ -z "$APPROVERS" ]; then
+            echo "::error::$(m_no_approvers)"; exit 1
+          fi
+          [ "$FORCED" = "true" ] && reject "$(m_forced)"
+          pr=""
+          for _ in 1 2 3 4 5 6; do
+            pr=$(gh api "repos/$REPO/commits/$SHA/pulls" \
+              --jq "[.[] | select(.merged_at != null and .base.ref == \"main\" and .merge_commit_sha == \"$SHA\")][0].number // empty")
+            [ -n "$pr" ] && break
+            sleep 5
+          done
+          [ -z "$pr" ] && reject "$(m_direct "$SHA")"
+          data=$(gh api "repos/$REPO/pulls/$pr")
+          head_ref=$(echo "$data" | jq -r .head.ref)
+          head_repo=$(echo "$data" | jq -r '.head.repo.full_name // "deleted-fork"')
+          merger=$(echo "$data" | jq -r .merged_by.login)
+          case "$head_ref" in
+            "$INTEGRATION"|hotfix/*) ;;
+            *) reject "$(m_origin "$pr" "$head_repo:$head_ref")" ;;
+          esac
+          if ! echo ",$(echo "$APPROVERS" | tr -d ' ')," | grep -qi ",$merger,"; then
+            reject "$(m_merger "$pr" "$merger")"
+          fi
+          echo "accepted=true" >> "$GITHUB_OUTPUT"
+          m_ok "$pr" "$head_repo:$head_ref" "$merger"
+
+  sync-integration:
+    name: ${{ inputs.language == 'es' && format('Sincronizar {0}', inputs.integration-branch) || format('Sync {0}', inputs.integration-branch) }}
+    needs: protect-main
+    if: needs.protect-main.outputs.accepted == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Bring main into the repository's integration branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          INTEGRATION: ${{ inputs.integration-branch }}
+          LANGUAGE: ${{ inputs.language }}
+        run: |
+          set -uo pipefail
+          if [ "$LANGUAGE" = "es" ]; then
+            m_missing()  { echo "La rama $INTEGRATION no existe en $REPO. Nada que sincronizar."; }
+            m_has()      { echo "OK: $INTEGRATION ya contiene main."; }
+            m_ff()       { echo "OK: $INTEGRATION avanzó a main (${SHA::7})."; }
+            m_merged()   { echo "OK: main fusionado en $INTEGRATION."; }
+            m_conflict() { echo "No se pudo fusionar main en $INTEGRATION (conflicto). Resolverlo a mano: fusionar main en $INTEGRATION y enviar."; }
+            m_unknown()  { echo "Estado inesperado al comparar $INTEGRATION con main: $1"; }
+            msg_merge="Fusionar main en $INTEGRATION"
+          else
+            m_missing()  { echo "Branch $INTEGRATION does not exist in $REPO. Nothing to sync."; }
+            m_has()      { echo "OK: $INTEGRATION already contains main."; }
+            m_ff()       { echo "OK: $INTEGRATION fast-forwarded to main (${SHA::7})."; }
+            m_merged()   { echo "OK: main merged into $INTEGRATION."; }
+            m_conflict() { echo "Could not merge main into $INTEGRATION (conflict). Resolve it manually: merge main into $INTEGRATION and push."; }
+            m_unknown()  { echo "Unexpected status comparing $INTEGRATION with main: $1"; }
+            msg_merge="Merge main into $INTEGRATION"
+          fi
+          if ! status=$(gh api "repos/$REPO/compare/$INTEGRATION...$SHA" --jq .status 2>/dev/null); then
+            echo "::notice::$(m_missing)"; exit 0
+          fi
+          case "$status" in
+            identical|behind)
+              m_has ;;
+            ahead)
+              gh api -X PATCH "repos/$REPO/git/refs/heads/$INTEGRATION" -f sha="$SHA" -F force=false >/dev/null
+              m_ff ;;
+            diverged)
+              if gh api -X POST "repos/$REPO/merges" -f base="$INTEGRATION" -f head="$SHA" \
+                   -f commit_message="$msg_merge" >/dev/null 2>&1; then
+                m_merged
+              else
+                echo "::warning::$(m_conflict)"
+              fi ;;
+            *)
+              echo "::warning::$(m_unknown "$status")" ;;
+          esac
