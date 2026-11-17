@@ -1,18 +1,17 @@
 # Automation accounts
 
-An automation account is a GitHub account used by a tool (bot, external CI, assistant) to work on the repository. It follows the same flow as a person and always works from a fork. The reason is in [How `main` is protected](protection.md#why-automation-accounts-use-a-fork).
+## Table of Contents
+- [1. What it can and cannot do](#1-what-it-can-and-cannot-do)
+- [2. Setting up the account](#2-setting-up-the-account)
+- [3. Fork](#3-fork)
+- [4. Credentials](#4-credentials)
+- [5. Working clone](#5-working-clone)
+- [6. Daily work](#6-daily-work)
+- [7. Troubleshooting](#7-troubleshooting)
 
-## Contents
+An automation account is a GitHub account used by a tool (a bot or an external CI service, for example) to work on the repository. It follows the same flow as a person and always works from a fork. The reason is in [How `main` is protected](protection.md#3-why-automation-accounts-use-a-fork).
 
-- [What it can and cannot do](#what-it-can-and-cannot-do)
-- [Setting up the account](#setting-up-the-account)
-- [Fork](#fork)
-- [Credentials](#credentials)
-- [Working clone](#working-clone)
-- [Daily work](#daily-work)
-- [Troubleshooting](#troubleshooting)
-
-## What it can and cannot do
+## 1. What it can and cannot do
 
 | Can | Cannot |
 |---|---|
@@ -21,7 +20,7 @@ An automation account is a GitHub account used by a tool (bot, external CI, assi
 | Open PRs to `main`, comment on them and update them | Approve its own PR or run workflows manually |
 | Read the check status of its PRs | Read secrets (fork PR workflows run without them) |
 
-## Setting up the account
+## 2. Setting up the account
 
 Done by the owner:
 
@@ -31,7 +30,7 @@ Done by the owner:
 
 Do not give the account Write or Admin, and do not add it to `MAIN_APPROVERS`.
 
-## Fork
+## 3. Fork
 
 Signed in as the automation account:
 
@@ -40,7 +39,7 @@ Signed in as the automation account:
 
 A fork of a private repository is private and is deleted if the account loses access to the original.
 
-## Credentials
+## 4. Credentials
 
 Working from a computer needs two fine-grained tokens, because each token has a single resource owner:
 
@@ -61,7 +60,7 @@ git config --global credential.useHttpPath true
 
 Store each token with `git credential approve` (`protocol=https`, `host=github.com`, `path=<owner>/<repo>.git`, `username=<login>`, `password=<token>`), without leaving it in the shell history. Remove personal GitHub credentials from that computer.
 
-## Working clone
+## 5. Working clone
 
 ```sh
 git clone https://github.com/<account>/<repo>.git
@@ -73,9 +72,9 @@ git config core.hooksPath .githooks
 git fetch upstream
 ```
 
-## Daily work
+## 6. Daily work
 
-Follow the [daily cycle from a fork](workflow.md#daily-cycle-from-a-fork) and open the PR `<account>:development` → `main` when a release is requested.
+Follow the [daily cycle from a fork](workflow.md#4-daily-cycle-from-a-fork) and open the PR `<account>:development` → `main` when a release is requested.
 
 Opening a PR through the API (with the original repository's token):
 
@@ -87,7 +86,7 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.gi
 
 After the merge: `git fetch upstream && git checkout development && git merge upstream/main && git push origin development`.
 
-## Troubleshooting
+## 7. Troubleshooting
 
 | Problem | Cause | Fix |
 |---|---|---|

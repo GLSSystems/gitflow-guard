@@ -1,4 +1,5 @@
-# CI of this repository. Uses its own shared flow and validates the files. Deploys nothing.
+# CI of this repository. Uses its own shared flow, validates the files and, after an accepted
+# merge into main, tags and publishes the version at the top of CHANGELOG.md.
 name: CI
 
 on:
@@ -72,3 +73,28 @@ jobs:
           if git grep -nE 'github_pat_[A-Za-z0-9_]{20,}|ghp_[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16}' -- . ; then
             echo "::error::Token or access key committed"; exit 1; fi
           echo "OK"
+
+  release:
+    name: Release
+    needs: [flow, validate]
+    if: needs.flow.outputs.main-accepted == 'true' && needs.validate.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag and publish the version at the top of CHANGELOG.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(grep -m1 -oE '^## v[0-9]+\.[0-9]+\.[0-9]+$' CHANGELOG.md | cut -c4- || true)
+          if [ -z "$version" ]; then
+            echo "::error::CHANGELOG.md has no '## vX.Y.Z' heading"; exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/$version" >/dev/null; then
+            echo "$version is already released. Nothing to do."; exit 0
+          fi
+          awk -v heading="## $version" '$0 == heading {found=1; next} /^## /{found=0} found' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          gh release create "$version" --target "$GITHUB_SHA" --title "$version" --notes-file "$RUNNER_TEMP/notes.md"
+          echo "Released $version at ${GITHUB_SHA::7}"

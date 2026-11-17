@@ -1,15 +1,14 @@
 # Adopting the flow in a project
 
-Steps for the owner. Done once per organization and once per repository.
-
-## Contents
-
+## Table of Contents
 - [1. Organization](#1-organization)
 - [2. Repository](#2-repository)
 - [3. Project workflow](#3-project-workflow)
 - [4. Local hook](#4-local-hook)
 - [5. Project README](#5-project-readme)
 - [6. Updating the shared flow version](#6-updating-the-shared-flow-version)
+
+Steps for the owner. Done once per organization and once per repository.
 
 ## 1. Organization
 
@@ -57,7 +56,7 @@ git config core.hooksPath .githooks
 
 ## 5. Project README
 
-Add the section from `templates/readme-section.<lang>.md` ([en](../../templates/readme-section.en.md), [es](../../templates/readme-section.es.md)). The project's README documents only what is specific to it: what it validates, how it deploys, its infrastructure and its variables. The flow is linked, not copied.
+Add the section from `templates/readme-section.<lang>.md` ([en](../../templates/readme-section.en.md), [es](../../templates/readme-section.es.md)). Replace `<N>` with its section number and add it to the project's Table of Contents. The project's README documents only what is specific to it: what it validates, how it deploys, its infrastructure and its variables. The flow is linked, not copied.
 
 ## 6. Updating the shared flow version
 
